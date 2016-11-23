@@ -1,18 +1,18 @@
-django-s3-storage changelog
+django-gs-storage changelog
 ===========================
 
 0.9.11
 ------
 
 - Added support for server-side encryption (@aaugustin).
-- Allowed S3 files to be re-opened once closed (@etianen).
+- Allowed GS files to be re-opened once closed (@etianen).
 - Bugfixes (@Moraga, @etianen).
 
 
 0.9.10
 ------
 
-- Fixing regression with accessing legacy S3 keys with non-normalized path names (@etianen).
+- Fixing regression with accessing legacy GS keys with non-normalized path names (@etianen).
 
 
 0.9.9
@@ -33,7 +33,7 @@ django-s3-storage changelog
 0.9.7
 -----
 
-- Added support for non-S3 hosts (@philippbosch, @heldinz).
+- Added support for non-GS hosts (@philippbosch, @heldinz).
 - Added support for reduced redundancy storage class (@aaugustin).
 - Minor bugfixes and documentation improvements (@leonsim, @alexkahn, @etianen).
 
@@ -41,14 +41,14 @@ django-s3-storage changelog
 0.9.6
 -----
 
-- Added settings for customizing S3 public URLs (@etianen).
-- Added settings for customizing S3 calling format (@etianen).
+- Added settings for customizing GS public URLs (@etianen).
+- Added settings for customizing GS calling format (@etianen).
 
 
 0.9.5
 -----
 
-- Compressing javascript files on upload to S3 (@etianen).
+- Compressing javascript files on upload to GS (@etianen).
 
 
 0.9.4
@@ -61,7 +61,7 @@ django-s3-storage changelog
 0.9.3
 -----
 
-- Fixed issue with s3_sync_meta management command not being included in source distribution (@etianen).
+- Fixed issue with gs_sync_meta management command not being included in source distribution (@etianen).
 
 
 0.9.2
@@ -74,8 +74,8 @@ django-s3-storage changelog
 0.9.1
 -----
 
-- Added `AWS_S3_MAX_AGE_SECONDS` setting (@kasajei).
-- Added option to connect S3 without AWS key/secret (@achiku).
+- Added `GCP_GS_MAX_AGE_SECONDS` setting (@kasajei).
+- Added option to connect GS without GCP key/secret (@achiku).
 
 
 0.9.0

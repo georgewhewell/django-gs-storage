@@ -28,7 +28,7 @@ cache:
 install:
   - travis_retry pip install $DJANGO -e .[test]
 script:
-  - coverage run tests/manage.py test django_s3_storage
+  - coverage run tests/manage.py test django_gs_storage
 after_script:
   - coverage report
 notifications:

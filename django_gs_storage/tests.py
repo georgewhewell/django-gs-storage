@@ -12,25 +12,25 @@ from django.test import TestCase
 from django.utils.encoding import force_bytes, force_text
 from django.utils import timezone
 
-from django_s3_storage.conf import settings
-from django_s3_storage.storage import S3Storage, StaticS3Storage
+from django_gs_storage.conf import settings
+from django_gs_storage.storage import GSStorage, StaticGSStorage
 
 
-@skipUnless(settings.AWS_REGION, "No settings.AWS_REGION supplied.")
-@skipUnless(settings.AWS_ACCESS_KEY_ID, "No settings.AWS_ACCESS_KEY_ID supplied.")
-@skipUnless(settings.AWS_SECRET_ACCESS_KEY, "No settings.AWS_SECRET_ACCESS_KEY supplied.")
-@skipUnless(settings.AWS_S3_BUCKET_NAME, "No settings.AWS_S3_BUCKET_NAME supplied.")
-@skipUnless(settings.AWS_S3_BUCKET_NAME_STATIC, "No settings.AWS_S3_BUCKET_NAME_STATIC supplied.")
-class TestS3Storage(TestCase):
+@skipUnless(settings.GCP_REGION, "No settings.GCP_REGION supplied.")
+@skipUnless(settings.GCP_ACCESS_KEY_ID, "No settings.GCP_ACCESS_KEY_ID supplied.")
+@skipUnless(settings.GCP_SECRET_ACCESS_KEY, "No settings.GCP_SECRET_ACCESS_KEY supplied.")
+@skipUnless(settings.GCP_GS_BUCKET_NAME, "No settings.GCP_GS_BUCKET_NAME supplied.")
+@skipUnless(settings.GCP_GS_BUCKET_NAME_STATIC, "No settings.GCP_GS_BUCKET_NAME_STATIC supplied.")
+class TestGSStorage(TestCase):
 
     # Lazy settings tests.
 
     def testLazySettingsInstanceLookup(self):
-        self.assertTrue(settings.AWS_REGION)
+        self.assertTrue(settings.GCP_REGION)
 
     def testLazySettingsClassLookup(self):
-        self.assertEqual(settings.__class__.AWS_REGION.name, "AWS_REGION")
-        self.assertEqual(settings.__class__.AWS_REGION.default, "us-east-1")
+        self.assertEqual(settings.__class__.GCP_REGION.name, "GCP_REGION")
+        self.assertEqual(settings.__class__.GCP_REGION.default, "us-east-1")
 
     # Lifecycle.
 
@@ -45,21 +45,21 @@ class TestS3Storage(TestCase):
     @classmethod
     def saveTestFile(cls, upload_path=None, storage=None, file=None):
         saved_path = (storage or cls.storage).save(upload_path or cls.upload_path, file or cls.file)
-        time.sleep(0.2)  # Give it a chance to propagate over S3.
+        time.sleep(0.2)  # Give it a chance to propagate over GS.
         return saved_path
 
     @classmethod
     def setUpClass(cls):
-        super(TestS3Storage, cls).setUpClass()
+        super(TestGSStorage, cls).setUpClass()
         cls.key_prefix = uuid.uuid4().hex
-        cls.storage = S3Storage(aws_s3_key_prefix=cls.key_prefix)
-        cls.storage_metadata = S3Storage(aws_s3_key_prefix=cls.key_prefix, aws_s3_metadata={
+        cls.storage = GSStorage(gcp_gs_key_prefix=cls.key_prefix)
+        cls.storage_metadata = GSStorage(gcp_gs_key_prefix=cls.key_prefix, gcp_gs_metadata={
             "Content-Disposition": lambda name: "attachment;filename={}".format(posixpath.basename(name)),
             "Content-Language": "fr",
         })
-        cls.insecure_storage = S3Storage(aws_s3_key_prefix=cls.key_prefix, aws_s3_bucket_auth=False, aws_s3_max_age_seconds=60*60*24*365)
+        cls.insecure_storage = GSStorage(gcp_gs_key_prefix=cls.key_prefix, gcp_gs_bucket_auth=False, gcp_gs_max_age_seconds=60*60*24*365)
         cls.key_prefix_static = uuid.uuid4().hex
-        cls.static_storage = StaticS3Storage(aws_s3_key_prefix=cls.key_prefix_static)
+        cls.static_storage = StaticGSStorage(gcp_gs_key_prefix=cls.key_prefix_static)
         cls.upload_base = uuid.uuid4().hex
         cls.file_contents = force_bytes(uuid.uuid4().hex * 1000, "ascii")
         cls.file = ContentFile(cls.file_contents)
@@ -73,7 +73,7 @@ class TestS3Storage(TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        super(TestS3Storage, cls).tearDownClass()
+        super(TestGSStorage, cls).tearDownClass()
         cls.storage.delete(cls.upload_path)
 
     # Assertions.
@@ -120,7 +120,7 @@ class TestS3Storage(TestCase):
     def testCannotOpenInWriteMode(self):
         with self.assertRaises(ValueError) as cm:
             self.storage.open(self.upload_path, "wb")
-        self.assertEqual(force_text(cm.exception), "S3 files can only be opened in read-only mode")
+        self.assertEqual(force_text(cm.exception), "GS files can only be opened in read-only mode")
 
     def testIOErrorRaisedOnOpenMissingFile(self):
         upload_path = self.generateUploadPath()
@@ -181,7 +181,7 @@ class TestS3Storage(TestCase):
         self.assertIn("?", url)
         # Ensure that the URL is accessible.
         response = self.assertUrlAccessible(url)
-        self.assertEqual(response.headers["cache-control"], "private,max-age={max_age}".format(max_age=settings.AWS_S3_MAX_AGE_SECONDS))
+        self.assertEqual(response.headers["cache-control"], "private,max-age={max_age}".format(max_age=settings.GCP_GS_MAX_AGE_SECONDS))
 
     def testSecureUrlIsPrivate(self):
         # Generate an insecure URL.
@@ -272,7 +272,7 @@ class TestS3Storage(TestCase):
         self.assertUrlInaccessible(url)
         # Sync the meta to insecure storage.
         self.insecure_storage.sync_meta()
-        time.sleep(0.2)  # Give it a chance to propagate over S3.
+        time.sleep(0.2)  # Give it a chance to propagate over GS.
         # URL is now accessible and well-cached.
         response = self.assertUrlAccessible(url)
         self.assertEqual(response.headers["cache-control"], "public,max-age=31536000")
@@ -285,7 +285,7 @@ class TestS3Storage(TestCase):
         self.assertEqual(response.headers.get("content-language", ""), "")
         # Sync the meta.
         self.storage_metadata.sync_meta()
-        time.sleep(0.2)  # Give it a chance to propagate over S3.
+        time.sleep(0.2)  # Give it a chance to propagate over GS.
         # Metadata should have been synced.
         url = self.storage_metadata.url(self.upload_path)
         response = self.assertUrlAccessible(url)
@@ -296,17 +296,17 @@ class TestS3Storage(TestCase):
 
     def testCannotUseBucketAuthWithPublicUrl(self):
         with self.assertRaises(ImproperlyConfigured) as cm:
-            S3Storage(aws_s3_bucket_auth=True, aws_s3_public_url="http://www.example.com/foo/")
-        self.assertEqual(force_text(cm.exception), "Cannot use AWS_S3_BUCKET_AUTH with AWS_S3_PUBLIC_URL.")
+            GSStorage(gcp_gs_bucket_auth=True, gcp_gs_public_url="http://www.example.com/foo/")
+        self.assertEqual(force_text(cm.exception), "Cannot use GCP_GS_BUCKET_AUTH with GCP_GS_PUBLIC_URL.")
 
     def testGeneratePublicUrl(self):
-        storage = S3Storage(aws_s3_bucket_auth=False, aws_s3_public_url="http://www.example.com/foo/")
+        storage = GSStorage(gcp_gs_bucket_auth=False, gcp_gs_public_url="http://www.example.com/foo/")
         self.assertEqual(storage.url("bar.png"), "http://www.example.com/foo/bar.png")
 
     # Static storage tests.
 
-    def testStaticS3StorageDefaultsToPublic(self):
-        self.assertFalse(self.static_storage.aws_s3_bucket_auth)
+    def testStaticGSStorageDefaultsToPublic(self):
+        self.assertFalse(self.static_storage.gcp_gs_bucket_auth)
 
-    def testStaticS3StorageDefaultsToLongMaxAge(self):
-        self.assertEqual(self.static_storage.aws_s3_max_age_seconds, 60*60*24*365)
+    def testStaticGSStorageDefaultsToLongMaxAge(self):
+        self.assertEqual(self.static_storage.gcp_gs_max_age_seconds, 60*60*24*365)

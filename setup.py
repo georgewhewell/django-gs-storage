@@ -1,19 +1,19 @@
 from setuptools import setup, find_packages
 
-from django_s3_storage import __version__
+from django_gs_storage import __version__
 
 
 version_str = ".".join(str(n) for n in __version__)
 
 
 setup(
-    name = "django-s3-storage",
+    name = "django-gs-storage",
     version = version_str,
     license = "BSD",
-    description = "Django Amazon S3 file storage.",
+    description = "Django Amazon GS file storage.",
     author = "Dave Hall",
     author_email = "dave@etianen.com",
-    url = "https://github.com/etianen/django-s3-storage",
+    url = "https://github.com/etianen/django-gs-storage",
     packages = find_packages(),
     install_requires = [
         "django>=1.7",

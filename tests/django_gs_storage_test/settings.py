@@ -1,5 +1,5 @@
 """
-Django settings for django_s3_storage_test project.
+Django settings for django_gs_storage_test project.
 
 For more information on this file, see
 https://docs.djangoproject.com/en/1.7/topics/settings/
@@ -27,17 +27,17 @@ TEMPLATE_DEBUG = True
 ALLOWED_HOSTS = []
 
 
-# S3 settings.
+# GS settings.
 
-AWS_REGION = os.environ.get("AWS_REGION")
+GCP_REGION = os.environ.get("GCP_REGION")
 
-AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID")
+GCP_ACCESS_KEY_ID = os.environ.get("GCP_ACCESS_KEY_ID")
 
-AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY")
+GCP_SECRET_ACCESS_KEY = os.environ.get("GCP_SECRET_ACCESS_KEY")
 
-AWS_S3_BUCKET_NAME = os.environ.get("AWS_S3_BUCKET_NAME")
+GCP_GS_BUCKET_NAME = os.environ.get("GCP_GS_BUCKET_NAME")
 
-AWS_S3_BUCKET_NAME_STATIC = os.environ.get("AWS_S3_BUCKET_NAME_STATIC")
+GCP_GS_BUCKET_NAME_STATIC = os.environ.get("GCP_GS_BUCKET_NAME_STATIC")
 
 
 # Application definition
@@ -49,7 +49,7 @@ INSTALLED_APPS = (
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'django_s3_storage',
+    'django_gs_storage',
 )
 
 MIDDLEWARE_CLASSES = (
@@ -62,9 +62,9 @@ MIDDLEWARE_CLASSES = (
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 )
 
-ROOT_URLCONF = 'django_s3_storage_test.urls'
+ROOT_URLCONF = 'django_gs_storage_test.urls'
 
-WSGI_APPLICATION = 'django_s3_storage_test.wsgi.application'
+WSGI_APPLICATION = 'django_gs_storage_test.wsgi.application'
 
 
 # Database

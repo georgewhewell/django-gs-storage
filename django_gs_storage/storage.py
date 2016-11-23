@@ -6,8 +6,8 @@ from email.utils import parsedate_tz
 from contextlib import closing, contextmanager
 from tempfile import SpooledTemporaryFile
 
-from boto import s3
-from boto.s3.connection import S3ResponseError
+from boto import gs
+from boto.gs.connection import GSResponseError
 
 from django.core.exceptions import ImproperlyConfigured
 from django.core.files.storage import Storage
@@ -18,72 +18,72 @@ from django.utils import timezone
 from django.utils.encoding import force_bytes, filepath_to_uri
 from django.utils.six.moves.urllib.parse import urljoin
 
-from django_s3_storage.conf import settings
+from django_gs_storage.conf import settings
 
 
 CONTENT_ENCODING_GZIP = "gzip"
 
 
-class S3File(File):
+class GSFile(File):
 
     """
-    A file returned from Amazon S3.
+    A file returned from Amazon GS.
     """
 
     def __init__(self, file, name, storage):
-        super(S3File, self).__init__(file, name)
+        super(GSFile, self).__init__(file, name)
         self._storage = storage
 
     def open(self, mode=None):
         if self.closed:
             self.file = self._storage.open(self.name, mode or "rb").file
-        return super(S3File, self).open(mode)
+        return super(GSFile, self).open(mode)
 
 
 @deconstructible
-class S3Storage(Storage):
+class GSStorage(Storage):
 
     """
-    An implementation of Django file storage over S3.
+    An implementation of Django file storage over GS.
 
     It would be nice to use django-storages for this, but it doesn't support
     Python 3, which is kinda lame.
     """
 
-    def __init__(self, aws_region=None, aws_access_key_id=None, aws_secret_access_key=None, aws_s3_bucket_name=None, aws_s3_calling_format=None, aws_s3_key_prefix=None, aws_s3_bucket_auth=None, aws_s3_max_age_seconds=None, aws_s3_public_url=None, aws_s3_reduced_redundancy=False, aws_s3_host=None, aws_s3_metadata=None, aws_s3_encrypt_key=None, aws_s3_gzip=None):
-        self.aws_region = settings.AWS_REGION if aws_region is None else aws_region
-        self.aws_access_key_id = settings.AWS_ACCESS_KEY_ID if aws_access_key_id is None else aws_access_key_id
-        self.aws_secret_access_key = settings.AWS_SECRET_ACCESS_KEY if aws_secret_access_key is None else aws_secret_access_key
-        self.aws_s3_bucket_name = settings.AWS_S3_BUCKET_NAME if aws_s3_bucket_name is None else aws_s3_bucket_name
-        self.aws_s3_calling_format = settings.AWS_S3_CALLING_FORMAT if aws_s3_calling_format is None else aws_s3_calling_format
-        self.aws_s3_key_prefix = settings.AWS_S3_KEY_PREFIX if aws_s3_key_prefix is None else aws_s3_key_prefix
-        self.aws_s3_bucket_auth = settings.AWS_S3_BUCKET_AUTH if aws_s3_bucket_auth is None else aws_s3_bucket_auth
-        self.aws_s3_max_age_seconds = settings.AWS_S3_MAX_AGE_SECONDS if aws_s3_max_age_seconds is None else aws_s3_max_age_seconds
-        self.aws_s3_public_url = settings.AWS_S3_PUBLIC_URL if aws_s3_public_url is None else aws_s3_public_url
-        self.aws_s3_reduced_redundancy = settings.AWS_S3_REDUCED_REDUNDANCY if aws_s3_reduced_redundancy is None else aws_s3_reduced_redundancy
-        self.aws_s3_host = settings.AWS_S3_HOST if aws_s3_host is None else aws_s3_host
-        self.aws_s3_metadata = settings.AWS_S3_METADATA if aws_s3_metadata is None else aws_s3_metadata
-        self.aws_s3_encrypt_key = settings.AWS_S3_ENCRYPT_KEY if aws_s3_encrypt_key is None else aws_s3_encrypt_key
-        self.aws_s3_gzip = settings.AWS_S3_GZIP if aws_s3_gzip is None else aws_s3_gzip
+    def __init__(self, gcp_region=None, gcp_access_key_id=None, gcp_secret_access_key=None, gcp_gs_bucket_name=None, gcp_gs_calling_format=None, gcp_gs_key_prefix=None, gcp_gs_bucket_auth=None, gcp_gs_max_age_seconds=None, gcp_gs_public_url=None, gcp_gs_reduced_redundancy=False, gcp_gs_host=None, gcp_gs_metadata=None, gcp_gs_encrypt_key=None, gcp_gs_gzip=None):
+        self.gcp_region = settings.GCP_REGION if gcp_region is None else gcp_region
+        self.gcp_access_key_id = settings.GCP_ACCESS_KEY_ID if gcp_access_key_id is None else gcp_access_key_id
+        self.gcp_secret_access_key = settings.GCP_SECRET_ACCESS_KEY if gcp_secret_access_key is None else gcp_secret_access_key
+        self.gcp_gs_bucket_name = settings.GCP_GS_BUCKET_NAME if gcp_gs_bucket_name is None else gcp_gs_bucket_name
+        self.gcp_gs_calling_format = settings.GCP_GS_CALLING_FORMAT if gcp_gs_calling_format is None else gcp_gs_calling_format
+        self.gcp_gs_key_prefix = settings.GCP_GS_KEY_PREFIX if gcp_gs_key_prefix is None else gcp_gs_key_prefix
+        self.gcp_gs_bucket_auth = settings.GCP_GS_BUCKET_AUTH if gcp_gs_bucket_auth is None else gcp_gs_bucket_auth
+        self.gcp_gs_max_age_seconds = settings.GCP_GS_MAX_AGE_SECONDS if gcp_gs_max_age_seconds is None else gcp_gs_max_age_seconds
+        self.gcp_gs_public_url = settings.GCP_GS_PUBLIC_URL if gcp_gs_public_url is None else gcp_gs_public_url
+        self.gcp_gs_reduced_redundancy = settings.GCP_GS_REDUCED_REDUNDANCY if gcp_gs_reduced_redundancy is None else gcp_gs_reduced_redundancy
+        self.gcp_gs_host = settings.GCP_GS_HOST if gcp_gs_host is None else gcp_gs_host
+        self.gcp_gs_metadata = settings.GCP_GS_METADATA if gcp_gs_metadata is None else gcp_gs_metadata
+        self.gcp_gs_encrypt_key = settings.GCP_GS_ENCRYPT_KEY if gcp_gs_encrypt_key is None else gcp_gs_encrypt_key
+        self.gcp_gs_gzip = settings.GCP_GS_GZIP if gcp_gs_gzip is None else gcp_gs_gzip
         # Validate args.
-        if self.aws_s3_public_url and self.aws_s3_bucket_auth:
-            raise ImproperlyConfigured("Cannot use AWS_S3_BUCKET_AUTH with AWS_S3_PUBLIC_URL.")
-        # Connect to S3.
+        if self.gcp_gs_public_url and self.gcp_gs_bucket_auth:
+            raise ImproperlyConfigured("Cannot use GCP_GS_BUCKET_AUTH with GCP_GS_PUBLIC_URL.")
+        # Connect to GS.
         connection_kwargs = {
-            "calling_format": self.aws_s3_calling_format,
+            "calling_format": self.gcp_gs_calling_format,
         }
-        if self.aws_access_key_id:
-            connection_kwargs["aws_access_key_id"] = self.aws_access_key_id
-        if self.aws_secret_access_key:
-            connection_kwargs["aws_secret_access_key"] = self.aws_secret_access_key
-        if self.aws_s3_host:
-            connection_kwargs["host"] = self.aws_s3_host
-        self.s3_connection = s3.connect_to_region(self.aws_region, **connection_kwargs)
-        if not self.aws_s3_bucket_auth:
-            self.s3_connection.provider.security_token = ''
-        self.bucket = self.s3_connection.get_bucket(self.aws_s3_bucket_name, validate=False)
+        if self.gcp_access_key_id:
+            connection_kwargs["gcp_access_key_id"] = self.gcp_access_key_id
+        if self.gcp_secret_access_key:
+            connection_kwargs["gcp_secret_access_key"] = self.gcp_secret_access_key
+        if self.gcp_gs_host:
+            connection_kwargs["host"] = self.gcp_gs_host
+        self.gs_connection = gs.connect_to_region(self.gcp_region, **connection_kwargs)
+        if not self.gcp_gs_bucket_auth:
+            self.gs_connection.provider.security_token = ''
+        self.bucket = self.gs_connection.get_bucket(self.gcp_gs_bucket_name, validate=False)
         # All done!
-        super(S3Storage, self).__init__()
+        super(GSStorage, self).__init__()
 
     # Helpers.
 
@@ -100,13 +100,13 @@ class S3Storage(Storage):
         Files in non-authenticated storage get a very long expiry time to
         optimize caching, as well as public caching support.
         """
-        if self.aws_s3_bucket_auth:
+        if self.gcp_gs_bucket_auth:
             privacy = "private"
         else:
             privacy = "public"
         return "{privacy},max-age={max_age}".format(
             privacy = privacy,
-            max_age = self.aws_s3_max_age_seconds,
+            max_age = self.gcp_gs_max_age_seconds,
         )
 
     def _get_content_encoding(self, content_type):
@@ -155,7 +155,7 @@ class S3Storage(Storage):
 
         Returns a tuple of (content_encoding, content).
         """
-        if self.aws_s3_gzip and content_encoding == CONTENT_ENCODING_GZIP:
+        if self.gcp_gs_gzip and content_encoding == CONTENT_ENCODING_GZIP:
             # Ideally, we would do some sort of incremental compression here,
             # but boto doesn't support uploading a key from an iterator.
             with self._temporary_file() as temp_file:
@@ -197,11 +197,11 @@ class S3Storage(Storage):
 
     def _get_key_name(self, name):
         """
-        Builds the key name we use to fetch this file form s3
+        Builds the key name we use to fetch this file form gs
 
         Normalises the path at the end as name can be a relative url
         """
-        return posixpath.join(self.aws_s3_key_prefix, name)
+        return posixpath.join(self.gcp_gs_key_prefix, name)
 
     def _generate_url(self, name):
         """
@@ -210,37 +210,37 @@ class S3Storage(Storage):
         Authenticated storage will return a signed URL. Non-authenticated
         storage will return an unsigned URL, which aids in browser caching.
         """
-        return self.s3_connection.generate_url(
+        return self.gs_connection.generate_url(
             method = "GET",
-            bucket = self.aws_s3_bucket_name,
+            bucket = self.gcp_gs_bucket_name,
             key = self._get_key_name(name),
-            expires_in = self.aws_s3_max_age_seconds,
-            query_auth = self.aws_s3_bucket_auth,
+            expires_in = self.gcp_gs_max_age_seconds,
+            query_auth = self.gcp_gs_bucket_auth,
         )
 
     def _get_key(self, name, validate=False):
         return self.bucket.get_key(self._get_key_name(name), validate=validate)
 
     def _get_canned_acl(self):
-        return "private" if self.aws_s3_bucket_auth else "public-read"
+        return "private" if self.gcp_gs_bucket_auth else "public-read"
 
     def _get_metadata(self, name):
         return {
             key: value(name) if callable(value) else value
             for key, value
-            in self.aws_s3_metadata.items()
+            in self.gcp_gs_metadata.items()
         }
 
     def _open(self, name, mode="rb"):
         if mode != "rb":
-            raise ValueError("S3 files can only be opened in read-only mode")
+            raise ValueError("GS files can only be opened in read-only mode")
         # Load the key into a temporary file. It would be nice to stream the
-        # content, but S3 doesn't support seeking, which is sometimes needed.
+        # content, but GS doesn't support seeking, which is sometimes needed.
         key = self._get_key(name)
         content = self._temporary_file()
         try:
             key.get_contents_to_file(content)
-        except S3ResponseError:
+        except GSResponseError:
             raise IOError("File {name} does not exist".format(
                 name = name,
             ))
@@ -249,7 +249,7 @@ class S3Storage(Storage):
         if key.content_encoding == CONTENT_ENCODING_GZIP:
             content = gzip.GzipFile(name, "rb", fileobj=content)
         # All done!
-        return S3File(content, name, self)
+        return GSFile(content, name, self)
 
     def _save(self, name, content):
         # Calculate the file headers and compression.
@@ -269,8 +269,8 @@ class S3Storage(Storage):
                 content,
                 policy = self._get_canned_acl(),
                 headers = headers,
-                reduced_redundancy = self.aws_s3_reduced_redundancy,
-                encrypt_key = self.aws_s3_encrypt_key,
+                reduced_redundancy = self.gcp_gs_reduced_redundancy,
+                encrypt_key = self.gcp_gs_encrypt_key,
             )
             # Return the name that was saved.
             return name
@@ -326,8 +326,8 @@ class S3Storage(Storage):
         Returns an absolute URL where the file's contents can be accessed
         directly by a Web browser.
         """
-        if self.aws_s3_public_url:
-            return urljoin(self.aws_s3_public_url, filepath_to_uri(name))
+        if self.gcp_gs_public_url:
+            return urljoin(self.gcp_gs_public_url, filepath_to_uri(name))
         return self._generate_url(name)
 
     def accessed_time(self, name):
@@ -335,7 +335,7 @@ class S3Storage(Storage):
         Returns the last accessed time (as datetime object) of the file
         specified by name.
 
-        Since this is not accessible via S3, the modified time is returned.
+        Since this is not accessible via GS, the modified time is returned.
         """
         return self.modified_time(name)
 
@@ -344,7 +344,7 @@ class S3Storage(Storage):
         Returns the creation time (as datetime object) of the file
         specified by name.
 
-        Since this is not accessible via S3, the modified time is returned.
+        Since this is not accessible via GS, the modified time is returned.
         """
         return self.modified_time(name)
 
@@ -364,7 +364,7 @@ class S3Storage(Storage):
 
     def sync_meta_iter(self):
         """
-        Sycnronizes the meta information on all S3 files.
+        Sycnronizes the meta information on all GS files.
 
         Returns an iterator of paths that have been syncronized.
         """
@@ -385,7 +385,7 @@ class S3Storage(Storage):
                     key.name,
                     preserve_acl=False,
                     metadata=metadata,
-                    encrypt_key=self.aws_s3_encrypt_key,
+                    encrypt_key=self.gcp_gs_encrypt_key,
                 )
                 # Set the ACL.
                 key.set_canned_acl(self._get_canned_acl())
@@ -398,18 +398,18 @@ class S3Storage(Storage):
 
     def sync_meta(self):
         """
-        Sycnronizes the meta information on all S3 files.
+        Sycnronizes the meta information on all GS files.
         """
         for path in self.sync_meta_iter():
             pass
 
 
-class StaticS3Storage(S3Storage):
+class StaticGSStorage(GSStorage):
 
     """
-    An S3 storage for storing static files.
+    An GS storage for storing static files.
 
-    Initializes the default bucket name frome the `AWS_S3_BUCKET_NAME_STATIC`
+    Initializes the default bucket name frome the `GCP_GS_BUCKET_NAME_STATIC`
     setting, allowing different buckets to be used for static and uploaded
     files.
 
@@ -418,19 +418,19 @@ class StaticS3Storage(S3Storage):
     """
 
     def __init__(self, **kwargs):
-        kwargs.setdefault("aws_s3_bucket_name", settings.AWS_S3_BUCKET_NAME_STATIC)
-        kwargs.setdefault("aws_s3_calling_format", settings.AWS_S3_CALLING_FORMAT_STATIC)
-        kwargs.setdefault("aws_s3_key_prefix", settings.AWS_S3_KEY_PREFIX_STATIC)
-        kwargs.setdefault("aws_s3_bucket_auth", settings.AWS_S3_BUCKET_AUTH_STATIC)
-        kwargs.setdefault("aws_s3_max_age_seconds", settings.AWS_S3_MAX_AGE_SECONDS_STATIC)
-        kwargs.setdefault("aws_s3_public_url", settings.AWS_S3_PUBLIC_URL_STATIC)
-        kwargs.setdefault("aws_s3_reduced_redundancy", settings.AWS_S3_REDUCED_REDUNDANCY_STATIC)
-        kwargs.setdefault("aws_s3_host", settings.AWS_S3_HOST_STATIC)
-        kwargs.setdefault("aws_s3_metadata", settings.AWS_S3_METADATA_STATIC)
-        kwargs.setdefault("aws_s3_gzip", settings.AWS_S3_GZIP_STATIC)
-        super(StaticS3Storage, self).__init__(**kwargs)
+        kwargs.setdefault("gcp_gs_bucket_name", settings.GCP_GS_BUCKET_NAME_STATIC)
+        kwargs.setdefault("gcp_gs_calling_format", settings.GCP_GS_CALLING_FORMAT_STATIC)
+        kwargs.setdefault("gcp_gs_key_prefix", settings.GCP_GS_KEY_PREFIX_STATIC)
+        kwargs.setdefault("gcp_gs_bucket_auth", settings.GCP_GS_BUCKET_AUTH_STATIC)
+        kwargs.setdefault("gcp_gs_max_age_seconds", settings.GCP_GS_MAX_AGE_SECONDS_STATIC)
+        kwargs.setdefault("gcp_gs_public_url", settings.GCP_GS_PUBLIC_URL_STATIC)
+        kwargs.setdefault("gcp_gs_reduced_redundancy", settings.GCP_GS_REDUCED_REDUNDANCY_STATIC)
+        kwargs.setdefault("gcp_gs_host", settings.GCP_GS_HOST_STATIC)
+        kwargs.setdefault("gcp_gs_metadata", settings.GCP_GS_METADATA_STATIC)
+        kwargs.setdefault("gcp_gs_gzip", settings.GCP_GS_GZIP_STATIC)
+        super(StaticGSStorage, self).__init__(**kwargs)
 
 
-class ManifestStaticS3Storage(ManifestFilesMixin, StaticS3Storage):
+class ManifestStaticGSStorage(ManifestFilesMixin, StaticGSStorage):
 
     pass

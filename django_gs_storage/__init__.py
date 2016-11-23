@@ -1,5 +1,5 @@
 """
-Django Amazon S3 file storage.
+Django Amazon GS file storage.
 """
 
 

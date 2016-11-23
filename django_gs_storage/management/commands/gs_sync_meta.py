@@ -4,7 +4,7 @@ from django.utils.module_loading import import_string
 
 class Command(BaseCommand):
 
-    help = "Syncronizes the meta information on S3 files."
+    help = "Syncronizes the meta information on GS files."
 
     args = "[path.to.storage.instance, ...]"
 
